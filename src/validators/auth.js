@@ -8,7 +8,7 @@ const signupSchema = new Joi.object({
 
 const loginSchema = new Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().email().required().max(30),
+  password: Joi.string().required().max(30),
 });
 
 module.exports = {
