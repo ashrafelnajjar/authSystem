@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const signup = async (req, res, next) => {
   const body = req.body;
   const exist = await USER.findOne({ email: body.email });
-  if (!exist) throw new AppError("email is already exist", 404);
+  if (exist) throw new AppError("email is already exist", 404);
   const user = await USER.create(body);
   res.status(200).json({ message: "success", user });
 };
