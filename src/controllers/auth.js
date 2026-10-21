@@ -1,51 +1,138 @@
 const AppError = require("../utils/AppError");
 const USER = require("../models/user");
 const bcrypt = require("bcrypt");
-const util = require("util"); 
+const util = require("util");
 const jwt = require("jsonwebtoken");
 const jwtSginPromise = util.promisify(jwt.sign);
-const sendEmail = require('../utils/sendEmail');
-const crypto = require('crypto');
+const sendEmail = require("../utils/sendEmail");
+const crypto = require("crypto");
+
+const getDeviceId = (req) =>
+  crypto
+    .createHash("sha256")
+    .update(req.headers["user-agent"] || "unknown")
+    .digest("hex");
 
 const signup = async (req, res, next) => {
   const body = req.body;
-  const exist = await USER.findOne({ email: body.email });
-  if (exist) throw new AppError("email is already exist", 404);
-  const user = await USER.create(body);
-  res.status(200).json({ message: "success", user });
+  const user = await USER.findOne({ email: body.email });
+  if (user && user.emailVerified) {
+    throw new AppError("Email already registered", 409);
+  }
+  if (user) {
+    user.name = body.name;
+    user.password = body.password;
+  } else {
+    user = new USER({ body });
+  }
+
+  const token = user.createEmailVerifyToken();
+  await user.save({ validateBeforeSave: false });
+  const verifyURL = `${process.env.APP_URL}/api/v1/auth/verify-email/${token}`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Confirm your email",
+      html: `
+        <div style="font-family: Arial; max-width: 480px;">
+          <h2>Welcome, ${user.name}!</h2>
+          <p>Please confirm your email to activate your account:</p>
+          <p><a href="${verifyURL}">Confirm my email</a></p>
+          <p>This link is valid for 24 hours. If you didn't create an account, ignore this email.</p>
+        </div>`,
+    });
+  } catch (err) {
+    console.error("Verification email failed:", err.message);
+  }
+
+  res.status(201).json({
+    status: "success",
+    message: "Account created. Please check your email to confirm it.",
+  });
 };
+const verifiyEmail = async (req, res) => {
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  const user = await USER.findOne({
+    emailVerifyToken: hashedToken,
+    emailVerifyExpires: { $gt: Date.now() },
+  });
+  if (!user) throw new AppError("link is invalid or expired !", 400);
+  user.emailVerified = true;
+  user.emailVerifyToken = undefined;     // اللينك يتستخدم مرة واحدة
+  user.emailVerifyExpires = undefined;
+  await user.save({ validateBeforeSave: false });
+  res.status(200).json({
+    status: "success",
+    message: "confirmed",
+  });
+};
+
+
+
 const login = async (req, res, next) => {
   const body = req.body;
-  const user = await USER.findOne({ email: body.email });
+  const user = await USER.findOne({ email }).select("+password +knownDevices");
+  if (!user.emailVerified)
+    throw new AppError("Please confirm your email first", 403);
   if (!user) throw new AppError("email or password is incorrect!", 400);
-  const iscorrectpassword = bcrypt.compare(body.password, USER.password);
+  const iscorrectpassword = await bcrypt.compare(body.password, user.password);
   if (!iscorrectpassword)
     throw new AppError(" email or password is incorrect!", 400);
   const token = await jwtSginPromise({ sub: user.id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 
-  res.status(200).json({ message: "success", user, token });
+  const deviceId = getDeviceId(req);
+  const knownDevices = user.knownDevices || [];
+
+  if (!knownDevices.includes(deviceId)) {
+    const isFirstLogin = knownDevices.length === 0;
+
+    await USER.updateOne(
+      { _id: user._id },
+      { $push: { knownDevices: { $each: [deviceId], $slice: -10 } } },
+    );
+
+    if (!isFirstLogin) {
+      const loggedInAt = new Date().toLocaleString("en-GB", {
+        timeZone: "Africa/Cairo",
+      });
+
+      sendEmail({
+        email: user.email,
+        subject: "New login from a new device",
+        html: `
+        <div style="font-family: Arial; max-width: 480px;">
+          <h2>New login from a new device</h2>
+          <p>Hi ${user.name},</p>
+          <p>Your account was accessed from a new device on <b>${loggedInAt}</b> (Cairo time).</p>
+          <p>If this was you, no action is needed. If not, reset your password immediately.</p>
+        </div>`,
+      }).catch((err) => console.error("Login email failed:", err.message));
+    }
+  }
+  res.status(200).json({ message: "success", token, user });
 };
 
 const forgotPassword = async (req, res) => {
   const body = req.body;
   const user = await USER.findOne({ email: body.email });
-  if (!user) throw new AppError("email is not exist", 404);
-
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
-
-  const resetURL = `http://localhost:3000/reset-password/${resetToken}`;
-
+  const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
   const message = `
-      <div style="direction: rtl; text-align: right; font-family: Arial;">
-        <h2>طلب إعادة تعيين كلمة السر</h2>
-        <p>لقد تلقينا طلباً لإعادة تعيين كلمة السر الخاصة بحسابك.</p>
-        <p>يرجى الضغط على الرابط التالي لتحديد كلمة سر جديدة (الرابط صالح لمدة 10 دقائق فقط):</p>
-        <a href="${resetURL}" style="display: inline-block; padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px;">إعادة تعيين كلمة السر</a>
-        <p>إذا لم تطلب هذا التغيير، يمكنك تجاهل هذا الإيميل وسيظل حسابك آمناً.</p>
-      </div>
+     <div style="direction: ltr; text-align: left; font-family: Arial;">
+        <h2>Password Reset Request</h2>
+        <p>We received a request to reset the password for your account.</p>
+        <p>Please click the link below to set a new password (the link is valid for 10 minutes only):</p>
+        <a href="${resetURL}" style="display: inline-block; padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+        <p>If you didn't request this change, you can ignore this email and your account will remain secure.</p>
+      </div>>
     `;
   try {
     await sendEmail({
@@ -84,7 +171,7 @@ const resetpassword = async (req, res) => {
   const salt = await bcrypt.genSalt(10);
   user.password = await bcrypt.hash(req.body.password, salt);
   user.passwordResetToken = undefined;
-  user.passwordResetExpires = undefined;  
+  user.passwordResetExpires = undefined;
   await user.save();
   res.status(200).json({
     status: "success",
@@ -97,4 +184,5 @@ module.exports = {
   signup,
   forgotPassword,
   resetpassword,
+  verifiyEmail
 };

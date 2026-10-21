@@ -12,6 +12,9 @@ const userSchema = new mongoose.Schema(
       validate: /\S+@\S+\.\S+/,
       unique: true,
     },
+    emailVerified: { type: Boolean, default: false },
+    emailVerifyToken: { type: String, select: false },
+    emailVerifyExpires: { type: Date, select: false },
     passwordResetToken: String,
     passwordResetExpires: Date,
     roles: {
@@ -19,6 +22,7 @@ const userSchema = new mongoose.Schema(
       enum: ["Costumer", "Admin"],
       default: "Costumer",
     },
+    knownDevices: { type: [String], default: [], select: false },
     phones: { type: String },
     addresses: [
       {
@@ -49,6 +53,15 @@ userSchema.pre("save", async function () {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
 });
+userSchema.methods.createEmailVerifyToken = function () {
+  const token = crypto.randomBytes(32).toString("hex");
+  this.emailVerifyToken = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+  this.emailVerifyExpires = Date.now() + 24 * 60 * 60 * 1000;
+  return token;
+};
 
 userSchema.methods.createPasswordResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString("hex");
@@ -59,8 +72,12 @@ userSchema.methods.createPasswordResetToken = function () {
     .digest("hex");
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
-  return resetToken
+  return resetToken;
 };
+userSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 24 * 60 * 60, partialFilterExpression: { emailVerified: false } },
+);
 
 const user = mongoose.model("user", userSchema);
 module.exports = user;

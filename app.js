@@ -7,10 +7,12 @@ const notfound = require("./src/middlewares/notfound");
 const errorhandler = require("./src/middlewares/error");
 const routerauth = require("./src/routers/auth");
 
+
 const app = express();
 app.use(express.json());
 
 app.use("/api/auth", routerauth);
+
 app.use("/", (req, res) => {
   res.status(200).json({ message: "success" });
 });
