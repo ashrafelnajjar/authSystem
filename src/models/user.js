@@ -1,83 +1,78 @@
+// src/models/users.js
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, minlength: 3, maxlength: 30 },
-    password: { type: String, required: true, minlength: 6, maxlength: 50 },
+    name: {
+      type: String,
+      required: [true, "name is required"],
+      trim: true,
+      minlength: 2,
+      maxlength: 50,
+    },
     email: {
       type: String,
-      required: true,
-      validate: /\S+@\S+\.\S+/,
+      required: [true, "email is required"],
       unique: true,
+      lowercase: true,
+      trim: true,
     },
-    emailVerified: { type: Boolean, default: false },
+    password: {
+      type: String,
+      required: [true, "password is required"],
+      minlength: 8,
+      select: false,            // مبيرجعش في الـ queries إلا لو طلبته
+    },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
+
+    // تأكيد الإيميل
+    emailVerified: { type: Boolean, default: true },
     emailVerifyToken: { type: String, select: false },
     emailVerifyExpires: { type: Date, select: false },
-    passwordResetToken: String,
-    passwordResetExpires: Date,
-    roles: {
-      type: String,
-      enum: ["Costumer", "Admin"],
-      default: "Costumer",
-    },
+
+    // نسيت الباسورد
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
+
+    // الأجهزة المعروفة (إشعار الجهاز الجديد)
     knownDevices: { type: [String], default: [], select: false },
-    phones: { type: String },
-    addresses: [
-      {
-        city: String,
-        street: String,
-        building: String,
-        details: String,
-        isDefault: { type: Boolean, default: false },
-      },
-    ],
   },
-  {
-    timestamps: true,
-    toJSON: {
-      transform: (doc, ret) => {
-        ret.createdAt = ret.createdAt.toLocaleString("en-EG", {
-          timeZone: "Africa/Cairo",
-        });
-        ret.updatedAt = ret.updatedAt.toLocaleString("en-EG", {
-          timeZone: "Africa/Cairo",
-        });
-        return ret;
-      },
-    },
-  },
+  { timestamps: true }
 );
+
+// حذف الحسابات اللي ما اتأكدتش بعد 24 ساعة
+userSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 24 * 60 * 60, partialFilterExpression: { emailVerified: false } }
+);
+
+// تشفير الباسورد: بس لو اتغيّر
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) return ;
   this.password = await bcrypt.hash(this.password, 10);
 });
+
+// توكن تأكيد الإيميل (بيرجّع الأصلي، ويخزّن hash)
 userSchema.methods.createEmailVerifyToken = function () {
   const token = crypto.randomBytes(32).toString("hex");
-  this.emailVerifyToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  this.emailVerifyToken = crypto.createHash("sha256").update(token).digest("hex");
   this.emailVerifyExpires = Date.now() + 24 * 60 * 60 * 1000;
   return token;
 };
 
+// توكن إعادة تعيين الباسورد
 userSchema.methods.createPasswordResetToken = function () {
-  const resetToken = crypto.randomBytes(32).toString("hex");
-
-  this.passwordResetToken = crypto
-    .createHash("sha256")
-    .update(resetToken)
-    .digest("hex");
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
-
-  return resetToken;
+  const token = crypto.randomBytes(32).toString("hex");
+  this.passwordResetToken = crypto.createHash("sha256").update(token).digest("hex");
+  this.passwordResetExpires = Date.now() + 15 * 60 * 1000;
+  return token;
 };
-userSchema.index(
-  { createdAt: 1 },
-  { expireAfterSeconds: 24 * 60 * 60, partialFilterExpression: { emailVerified: false } },
-);
 
 const user = mongoose.model("user", userSchema);
 module.exports = user;

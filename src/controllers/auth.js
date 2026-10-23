@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const jwtSginPromise = util.promisify(jwt.sign);
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
+const redis = require("../config/redis");
+
 
 const getDeviceId = (req) =>
   crypto
@@ -13,18 +15,18 @@ const getDeviceId = (req) =>
     .update(req.headers["user-agent"] || "unknown")
     .digest("hex");
 
-const signup = async (req, res, next) => {
-  const body = req.body;
-  const user = await USER.findOne({ email: body.email });
+const signup = async (req, res) => {
+  const {name, email , password} = req.body;
+  let user = await USER.findOne({ email });
   if (user && user.emailVerified) {
     throw new AppError("Email already registered", 409);
   }
   if (user) {
-    user.name = body.name;
-    user.password = body.password;
-  } else {
-    user = new USER({ body });
-  }
+    user.name = name;
+    user.password = password;
+  } 
+  user = await USER.create({name, email , password});
+  
 
   const token = user.createEmailVerifyToken();
   await user.save({ validateBeforeSave: false });
@@ -48,7 +50,7 @@ const signup = async (req, res, next) => {
 
   res.status(201).json({
     status: "success",
-    message: "Account created. Please check your email to confirm it.",
+    message: "Account created. Please check your email to confirm it.",user
   });
 };
 const verifiyEmail = async (req, res) => {
@@ -76,7 +78,7 @@ const verifiyEmail = async (req, res) => {
 
 const login = async (req, res, next) => {
   const body = req.body;
-  const user = await USER.findOne({ email }).select("+password +knownDevices");
+  const user = await USER.findOne({email :body.email }).populate("password knownDevices");
   if (!user.emailVerified)
     throw new AppError("Please confirm your email first", 403);
   if (!user) throw new AppError("email or password is incorrect!", 400);
@@ -118,6 +120,18 @@ const login = async (req, res, next) => {
   }
   res.status(200).json({ message: "success", token, user });
 };
+const logout = async (req, res) => {
+  const token = req.headers.authorization.split(" ")[1];   // protect اتأكد إنه موجود
+  const decoded = jwt.decode(token);                       // فيه exp بالثواني
+  const ttl = decoded.exp - Math.floor(Date.now() / 1000); // الوقت المتبقي
+
+  if (ttl > 0) {
+    const key = "bl:" + crypto.createHash("sha256").update(token).digest("hex");
+    await redis.set(key, "1", "EX", ttl);   // يتمسح لوحده لما الـ token ينتهي
+  }
+
+  res.status(200).json({ status: "success", message: "Logged out" });
+};
 
 const forgotPassword = async (req, res) => {
   const body = req.body;
@@ -136,7 +150,7 @@ const forgotPassword = async (req, res) => {
     `;
   try {
     await sendEmail({
-      email: user.email,
+      to: user.email,
       subject: "reset password",
       html: message,
     });
@@ -145,6 +159,7 @@ const forgotPassword = async (req, res) => {
       message: " password reset link has been sent to your email",
     });
   } catch (err) {
+    console.log("email error :",err)
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
@@ -184,5 +199,6 @@ module.exports = {
   signup,
   forgotPassword,
   resetpassword,
-  verifiyEmail
+  verifiyEmail,
+  logout
 };

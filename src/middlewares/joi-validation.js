@@ -1,19 +1,23 @@
 const AppError = require("../utils/AppError");
-//high order function
-const joivalidation = (schema) => {
-  return (req, res, next) => {
-    const body = req.body;
-    const { error, value } = schema.validate(body, {
-      abortEarly: false,
-    });
-    if 
-    (error)
-      throw new AppError(
-        error.details.map((err) => err.message).join(", "),
-        400,
-      );
-    next();
-  };
-};
-module.exports = joivalidation;
 
+const joivalidation = (schema) => (req, res, next) => {
+  for (const target of ["params", "body", "query"]) {
+    if (!schema[target]) continue;
+
+    const { error, value } = schema[target].validate(req[target], {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    if (error) {
+      const message = error.details.map((d) => d.message).join(", ");
+      return next(new AppError(message, 400));
+    }
+
+    if (target === "query") Object.assign(req.query, value);
+    else req[target] = value;
+  }
+  next();
+};
+
+module.exports = joivalidation;

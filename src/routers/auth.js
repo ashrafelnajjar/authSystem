@@ -14,17 +14,22 @@ const {
   forgotPassword,
   resetpassword,
   verifiyEmail,
+  logout,
 } = require("../controllers/auth");
-
+const auth = require("../middlewares/auth")
 router.post("/signup", joivalidation(signupSchema), signup);
 router.post("/login", joivalidation(loginSchema), login);
+
 router.post(
-  "/forgot password",
+  "/forgotpassword",
   joivalidation(forgotPasswordSchema),
   forgotPassword,
 );
+router.post("/logout", auth ,logout)
+
+
 router.patch(
-  "/reset password/:token",
+  "/resetpassword/:token",
   joivalidation(resetPasswordSchema),
   resetpassword,
 );

@@ -1,6 +1,6 @@
 const Joi = require("joi");
 
-const email = Joi.string().trim().lowercase().email().required();
+const email = Joi.string().trim().email().required();
 
 // الباسورد: 8 حروف على الأقل، فيه حرف ورقم، وأقصى 72 (حد bcrypt)
 const newPassword = Joi.string()
