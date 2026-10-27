@@ -106,7 +106,7 @@ const login = async (req, res, next) => {
       });
 
       sendEmail({
-        email: user.email,
+        to: user.email,
         subject: "New login from a new device",
         html: `
         <div style="font-family: Arial; max-width: 480px;">
