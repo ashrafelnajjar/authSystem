@@ -14,12 +14,12 @@ app.set("trust proxy", 1);
 // app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(
   "/api/v1/auth",
-  // rateLimiter({
-  //   windowMs: 2 * 60 * 1000,
-  //   limit: 5,
-  //   prefix: "rl:auth:",
-  //   skipSuccessfulRequests: true,
-  // }),
+  rateLimiter({
+    windowMs: 2 * 60 * 1000,
+    limit: 5,
+    prefix: "rl:auth:",
+    skipSuccessfulRequests: true,
+  }),
   routerauth,
 );
 

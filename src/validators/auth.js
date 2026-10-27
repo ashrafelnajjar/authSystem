@@ -2,7 +2,7 @@ const Joi = require("joi");
 
 const email = Joi.string().trim().email().required();
 
-// الباسورد: 8 حروف على الأقل، فيه حرف ورقم، وأقصى 72 (حد bcrypt)
+
 const newPassword = Joi.string()
   .min(8)
   .max(72)
@@ -21,7 +21,7 @@ const signupSchema = {
 const loginSchema = {
   body: Joi.object({
     email,
-    password: Joi.string().required(), // مفيش قواعد هنا
+    password: Joi.string().required(),
   }),
 };
 

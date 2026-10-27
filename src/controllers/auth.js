@@ -65,7 +65,7 @@ const verifiyEmail = async (req, res) => {
   });
   if (!user) throw new AppError("link is invalid or expired !", 400);
   user.emailVerified = true;
-  user.emailVerifyToken = undefined;     // اللينك يتستخدم مرة واحدة
+  user.emailVerifyToken = undefined;    
   user.emailVerifyExpires = undefined;
   await user.save({ validateBeforeSave: false });
   res.status(200).json({
@@ -121,13 +121,13 @@ const login = async (req, res, next) => {
   res.status(200).json({ message: "success", token, user });
 };
 const logout = async (req, res) => {
-  const token = req.headers.authorization.split(" ")[1];   // protect اتأكد إنه موجود
-  const decoded = jwt.decode(token);                       // فيه exp بالثواني
-  const ttl = decoded.exp - Math.floor(Date.now() / 1000); // الوقت المتبقي
+  const token = req.headers.authorization.split(" ")[1];  
+  const decoded = jwt.decode(token);                      
+  const ttl = decoded.exp - Math.floor(Date.now() / 1000); 
 
   if (ttl > 0) {
     const key = "bl:" + crypto.createHash("sha256").update(token).digest("hex");
-    await redis.set(key, "1", "EX", ttl);   // يتمسح لوحده لما الـ token ينتهي
+    await redis.set(key, "1", "EX", ttl);   
   }
 
   res.status(200).json({ status: "success", message: "Logged out" });

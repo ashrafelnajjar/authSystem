@@ -1,4 +1,4 @@
-// src/models/users.js
+
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "password is required"],
       minlength: 8,
-      select: false,            // مبيرجعش في الـ queries إلا لو طلبته
+      select: false,            
     },
     role: {
       type: String,
@@ -31,34 +31,31 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
-    // تأكيد الإيميل
     emailVerified: { type: Boolean, default: true },
     emailVerifyToken: { type: String, select: false },
     emailVerifyExpires: { type: Date, select: false },
 
-    // نسيت الباسورد
+
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
 
-    // الأجهزة المعروفة (إشعار الجهاز الجديد)
     knownDevices: { type: [String], default: [], select: false },
   },
   { timestamps: true }
 );
 
-// حذف الحسابات اللي ما اتأكدتش بعد 24 ساعة
+
 userSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 24 * 60 * 60, partialFilterExpression: { emailVerified: false } }
 );
 
-// تشفير الباسورد: بس لو اتغيّر
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return ;
   this.password = await bcrypt.hash(this.password, 10);
 });
 
-// توكن تأكيد الإيميل (بيرجّع الأصلي، ويخزّن hash)
+
 userSchema.methods.createEmailVerifyToken = function () {
   const token = crypto.randomBytes(32).toString("hex");
   this.emailVerifyToken = crypto.createHash("sha256").update(token).digest("hex");
@@ -66,7 +63,6 @@ userSchema.methods.createEmailVerifyToken = function () {
   return token;
 };
 
-// توكن إعادة تعيين الباسورد
 userSchema.methods.createPasswordResetToken = function () {
   const token = crypto.randomBytes(32).toString("hex");
   this.passwordResetToken = crypto.createHash("sha256").update(token).digest("hex");
