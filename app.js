@@ -4,6 +4,8 @@ const morgan = require("morgan");
 const cors = require("cors");
 const connectDB = require("./src/config/db");
 const notfound = require("./src/middlewares/notfound");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./src/docs/swagger");
 const errorhandler = require("./src/middlewares/error");
 const routerauth = require("./src/routers/auth");
 const rateLimiter = require("./src/middlewares/ratelimiter");
@@ -11,7 +13,7 @@ const rateLimiter = require("./src/middlewares/ratelimiter");
 const app = express();
 app.use(express.json());
 app.set("trust proxy", 1);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api-docs", swaggerUI.serve, swaggerUi.setup(swaggerSpec));
 app.use(
   "/api/v1/auth",
   rateLimiter({
