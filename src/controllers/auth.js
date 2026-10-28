@@ -26,6 +26,7 @@ const signup = async (req, res) => {
     await user.save();
   } else {
     user = await USER.create({ name, email, password });
+    await user.save();
   }
 
   const token = user.createEmailVerifyToken();
@@ -34,7 +35,7 @@ const signup = async (req, res) => {
 
   try {
     await sendEmail({
-      to: user.email,
+      to: email,
       subject: "Confirm your email",
       html: `
         <div style="font-family: Arial; max-width: 480px;">
