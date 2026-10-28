@@ -32,7 +32,7 @@ const signup = async (req, res) => {
 
   try {
     await sendEmail({
-      to: email,
+      to: user.email,
       subject: "Confirm your email",
       html: `
         <div style="font-family: Arial; max-width: 480px;">
