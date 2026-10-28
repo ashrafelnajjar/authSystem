@@ -15,16 +15,16 @@ const getDeviceId = (req) =>
     .digest("hex");
 
 const signup = async (req, res) => {
-  const { name, email, password } = req.body;
-  let user = await USER.findOne({ email });
+  const body = req.body;
+  let user = await USER.findOne({ email: body.email });
   if (user && user.emailVerified) {
     throw new AppError("Email already registered", 409);
   }
   if (user) {
-    user.name = name;
-    user.password = password;
+    user.name = body.name;
+    user.password = body.password;
   }
-  user = await USER.create({ name, email, password });
+  user = await USER.create({ body });
 
   const token = user.createEmailVerifyToken();
   await user.save({ validateBeforeSave: false });
@@ -32,7 +32,7 @@ const signup = async (req, res) => {
 
   try {
     await sendEmail({
-      to: user.email,
+      to: body.email,
       subject: "Confirm your email",
       html: `
         <div style="font-family: Arial; max-width: 480px;">
