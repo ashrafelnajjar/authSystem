@@ -11,7 +11,7 @@ const rateLimiter = require("./src/middlewares/ratelimiter");
 const app = express();
 app.use(express.json());
 app.set("trust proxy", 1);
-// app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(
   "/api/v1/auth",
   rateLimiter({
