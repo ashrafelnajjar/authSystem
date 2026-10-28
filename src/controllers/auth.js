@@ -23,8 +23,10 @@ const signup = async (req, res) => {
   if (user) {
     user.name = name;
     user.password = password;
+    await user.save();
+  } else {
+    user = await USER.create({ name, email, password });
   }
-  user = await USER.create({ name, email, password });
 
   const token = user.createEmailVerifyToken();
   await user.save({ validateBeforeSave: false });
