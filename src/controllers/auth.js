@@ -8,7 +8,6 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const redis = require("../config/redis");
 
-
 const getDeviceId = (req) =>
   crypto
     .createHash("sha256")
@@ -16,7 +15,7 @@ const getDeviceId = (req) =>
     .digest("hex");
 
 const signup = async (req, res) => {
-  const {name, email , password} = req.body;
+  const { name, email, password } = req.body;
   let user = await USER.findOne({ email });
   if (user && user.emailVerified) {
     throw new AppError("Email already registered", 409);
@@ -24,9 +23,8 @@ const signup = async (req, res) => {
   if (user) {
     user.name = name;
     user.password = password;
-  } 
-  user = await USER.create({name, email , password});
-  
+  }
+  user = await USER.create({ name, email, password });
 
   const token = user.createEmailVerifyToken();
   await user.save({ validateBeforeSave: false });
@@ -50,7 +48,8 @@ const signup = async (req, res) => {
 
   res.status(201).json({
     status: "success",
-    message: "Account created. Please check your email to confirm it.",user
+    message: "Account created. Please check your email to confirm it.",
+    user,
   });
 };
 const verifiyEmail = async (req, res) => {
@@ -63,22 +62,68 @@ const verifiyEmail = async (req, res) => {
     emailVerifyToken: hashedToken,
     emailVerifyExpires: { $gt: Date.now() },
   });
-  if (!user) throw new AppError("link is invalid or expired !", 400);
+  if (!user) {
+    return res.status(400).send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Verification Failed</title>
+            <style>
+                body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
+                .error-icon { font-size: 50px; color: #e74c3c; margin-bottom: 20px; }
+                h1 { color: #333; font-size: 24px; margin-bottom: 10px; }
+                p { color: #666; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="error-icon">❌</div>
+                <h1>Verification Failed</h1>
+                <p>The verification link is invalid or has expired.</p>
+            </div>
+        </body>
+        </html>
+      `);
+  }
   user.emailVerified = true;
-  user.emailVerifyToken = undefined;    
+  user.emailVerifyToken = undefined;
   user.emailVerifyExpires = undefined;
   await user.save({ validateBeforeSave: false });
-  res.status(200).json({
-    status: "success",
-    message: "confirmed",
-  });
+  res.status(200).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Email Confirmed</title>
+          <style>
+              body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+              .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
+              .success-icon { font-size: 50px; color: #2ecc71; margin-bottom: 20px; }
+              h1 { color: #333; font-size: 24px; margin-bottom: 10px; }
+              p { color: #666; font-size: 14px; margin-bottom: 20px; }
+              .btn { display: inline-block; padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
+          </style>
+      </head>
+      <body>
+          <div class="card">
+              <div class="success-icon">✔️</div>
+              <h1>Confirmed!</h1>
+              <p>Your email has been successfully verified. You can now log in to your account.</p>
+              <a href="${process.env.APP_URL}/login" class="btn">Go to Login</a>
+          </div>
+      </body>
+      </html>
+    `);
 };
-
-
 
 const login = async (req, res, next) => {
   const body = req.body;
-  const user = await USER.findOne({email :body.email }).populate("password knownDevices");
+  const user = await USER.findOne({ email: body.email }).populate(
+    "password knownDevices",
+  );
   if (!user.emailVerified)
     throw new AppError("Please confirm your email first", 403);
   if (!user) throw new AppError("email or password is incorrect!", 400);
@@ -121,13 +166,13 @@ const login = async (req, res, next) => {
   res.status(200).json({ message: "success", token, user });
 };
 const logout = async (req, res) => {
-  const token = req.headers.authorization.split(" ")[1];  
-  const decoded = jwt.decode(token);                      
-  const ttl = decoded.exp - Math.floor(Date.now() / 1000); 
+  const token = req.headers.authorization.split(" ")[1];
+  const decoded = jwt.decode(token);
+  const ttl = decoded.exp - Math.floor(Date.now() / 1000);
 
   if (ttl > 0) {
     const key = "bl:" + crypto.createHash("sha256").update(token).digest("hex");
-    await redis.set(key, "1", "EX", ttl);   
+    await redis.set(key, "1", "EX", ttl);
   }
 
   res.status(200).json({ status: "success", message: "Logged out" });
@@ -159,7 +204,7 @@ const forgotPassword = async (req, res) => {
       message: " password reset link has been sent to your email",
     });
   } catch (err) {
-    console.log("email error :",err)
+    console.log("email error :", err);
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
@@ -200,5 +245,5 @@ module.exports = {
   forgotPassword,
   resetpassword,
   verifiyEmail,
-  logout
+  logout,
 };

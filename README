@@ -1,0 +1,115 @@
+Auth System API
+
+A production-style authentication REST API: sign up with email verification, login, logout with token revocation, and forgot / reset password by email. Built with Node.js, Express and MongoDB.
+
+Live API: https://authsystem-production-7586.up.railway.app
+Interactive docs (Swagger): https://authsystem-production-7586.up.railway.app/api-docs
+Features
+Sign up with email verification: the account is created unverified and a confirmation link is emailed. Login is blocked until the link is opened
+Automatic cleanup: accounts that are never confirmed are deleted after 24 hours (MongoDB TTL index)
+Login with JWT: returns a signed token; the same error message is used for unknown email and wrong password, so accounts cannot be discovered
+Real logout: the token is revoked on the server (stored in Redis until it would have expired), so a stolen or old token stops working immediately
+Forgot / reset password: a single-use reset link valid for 15 minutes; the response is identical whether or not the email exists
+Tokens are never stored in plain text: verification and reset tokens are random, only their SHA-256 hash is saved
+Passwords hashed with bcrypt
+Rate limiting backed by Redis: failed logins, sign ups and reset requests are limited per IP
+Request validation with Joi: unknown fields are stripped, so a client cannot set its own role or emailVerified
+Centralised error handling with a consistent JSON error format
+Swagger documentation at /api-docs
+Tech Stack
+
+Node.js · Express · MongoDB (Mongoose) · Redis (ioredis) · JWT · bcrypt · Joi · Nodemailer · Swagger UI
+
+API Endpoints
+
+Full interactive documentation is available at /api-docs.
+
+Method	Endpoint	Auth	Description
+POST	/api/v1/auth/signup	No	Create an account and send the confirmation email
+GET	/api/v1/auth/verify-email/:token	No	Confirm the email (link sent by email)
+POST	/api/v1/auth/login	No	Log in and receive a JWT
+POST	/api/v1/auth/logout	Bearer	Revoke the current token
+POST	/api/v1/auth/forgotpassword	No	Email a password reset link
+PATCH	/api/v1/auth/reset-password/:token	No	Set a new password
+How It Works
+
+Sign up and verification
+
+POST /signup validates the body, creates the user with emailVerified: false, and emails a link containing a random token
+Only the token's SHA-256 hash is stored, together with a 24-hour expiry
+Opening the link (GET /verify-email/:token) sets emailVerified: true and deletes the token, so the link works once
+POST /login returns 403 until the email is verified
+
+Login and logout
+
+POST /login checks the password with bcrypt and returns a JWT (sub = user id)
+The auth middleware verifies the signature, checks that the token was not revoked, and loads the user
+POST /logout stores a hash of the token in Redis with a TTL equal to its remaining lifetime. Any later request with that token gets 401
+
+Password reset
+
+POST /forgotpassword emails a reset link (valid 15 minutes) if the account exists, and always answers the same way
+PATCH /reset-password/:token checks the hashed token and its expiry, saves the new password, and invalidates the token
+
+Rate limits
+
+Route	Limit	Counts
+login	5 per 15 minutes	failed attempts only
+signup	5 per hour	every request
+forgot password	5 per hour	every request
+Getting Started
+Prerequisites
+Node.js 18+
+A MongoDB database (e.g. MongoDB Atlas free tier)
+A Redis instance (e.g. Redis Cloud free tier)
+A Gmail account with an App Password (requires 2-Step Verification) for sending emails
+Installation
+bash
+git clone https://github.com/ashrafelnajjar/authSystem.git
+cd authSystem
+npm install
+
+Create your environment file and fill in the values (see the table below):
+
+bash
+cp .env.example .env        # Windows PowerShell: copy .env.example .env
+Run
+bash
+npm start
+
+The API runs on http://localhost:5000 and the docs on http://localhost:5000/api-docs.
+
+Try it
+POST /api/v1/auth/signup with a real email address you own
+Open the link in the confirmation email
+POST /api/v1/auth/login, then copy the token
+POST /api/v1/auth/logout with Authorization: Bearer <token>, then repeat any protected request with the same token and you get 401
+Environment Variables
+Variable	Description
+PORT	Port to listen on (set automatically on most hosts)
+APP_URL	Public URL of the API, used to build the links in emails
+DB_URL	MongoDB connection string
+REDIS_URL	Redis connection URL
+JWT_SECRET	Secret used to sign tokens
+JWT_EXPIRES_IN	Token lifetime, e.g. 7d
+EMAIL_USER	Gmail address used to send emails
+EMAIL_PASSWORD	Gmail App Password (16 characters)
+Error Format
+
+Every error has the same shape:
+
+json
+{ "status": "fail", "message": "email or password is incorrect!" }
+Status	Meaning
+400	Validation error, or invalid / expired token
+401	Missing, invalid, expired or revoked token
+403	Email not verified
+409	Email already registered
+429	Too many requests
+Deployment
+
+The API is deployed on Railway. Set the variables above in the service settings and set APP_URL to the generated domain, because it is used in the links sent by email.
+
+Author
+
+ashrafelnajjar · GitHub
