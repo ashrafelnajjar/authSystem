@@ -231,8 +231,8 @@ const resetpassword = async (req, res) => {
   });
   if (!user) throw new AppError("link is invalid or expired !", 400);
 
-  const salt = await bcrypt.genSalt(10);
-  user.password = await bcrypt.hash(req.body.password, salt);
+
+  user.password = req.body.password
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   await user.save();

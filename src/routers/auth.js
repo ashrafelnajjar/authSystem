@@ -29,7 +29,7 @@ router.post("/logout", auth ,logout)
 
 
 router.patch(
-  "/resetpassword/:token",
+  "/reset-password/:token",
   joivalidation(resetPasswordSchema),
   resetpassword,
 );
