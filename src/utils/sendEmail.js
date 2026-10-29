@@ -16,7 +16,7 @@ const sendViaBrevo = async ({ to, subject, html }) => {
     },
     body: JSON.stringify({
       sender: { name: "Auth System", email: process.env.EMAIL_USER },
-      to: [{ email: to }],
+      to,
       subject,
       htmlContent: html,
     }),

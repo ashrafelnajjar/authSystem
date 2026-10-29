@@ -33,7 +33,7 @@ router.patch(
   joivalidation(resetPasswordSchema),
   resetpassword,
 );
-router.patch(
+router.get(
   "/verify-email/:token",
   joivalidation(verifyEmailSchema),
   verifiyEmail,
