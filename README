@@ -2,8 +2,8 @@ Auth System API
 
 A production-style authentication REST API: sign up with email verification, login, logout with token revocation, and forgot / reset password by email. Built with Node.js, Express and MongoDB.
 
-Live API: https://authsystem-production-df51.up.railway.app
-Interactive docs (Swagger): https://authsystem-production-df51.up.railway.app/api-docs
+Live API: https://auth-system-rouge-seven.vercel.app
+Interactive docs (Swagger): https://auth-system-rouge-seven.vercel.app/api-docs
 Features
 Sign up with email verification: the account is created unverified and a confirmation link is emailed. Login is blocked until the link is opened
 Automatic cleanup: accounts that are never confirmed are deleted after 24 hours (MongoDB TTL index)

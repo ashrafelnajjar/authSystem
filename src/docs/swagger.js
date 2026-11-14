@@ -28,7 +28,7 @@ const swaggerSpec = {
       "click **Authorize** and paste it.",
   },
   servers: [
-    { url: "https://authsystem-production-7586.up.railway.app", description: "Production (Railway)" },
+    { url: "https://auth-system-rouge-seven.vercel.app", description: "Production (Railway)" },
     { url: "http://localhost:5000", description: "Local" },
   ],
   tags: [{ name: "Auth", description: "Registration, login and password recovery" }],
