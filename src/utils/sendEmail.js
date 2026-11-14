@@ -1,8 +1,3 @@
-// src/utils/sendEmail.js
-// Same signature everywhere: sendEmail({ to, subject, html })
-//
-// - BREVO_API_KEY set  -> sends through Brevo's HTTPS API (works on Railway, SMTP ports are blocked there)
-// - otherwise          -> sends through Gmail SMTP with nodemailer (works on your own machine)
 
 const nodemailer = require("nodemailer");
 
@@ -27,7 +22,7 @@ const sendViaBrevo = async ({ to, subject, html }) => {
   }
 };
 
-// One transporter for the whole app (reuses the connection)
+
 let transporter;
 const getTransporter = () => {
   if (!transporter) {
