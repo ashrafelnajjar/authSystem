@@ -108,7 +108,7 @@ Status	Meaning
 429	Too many requests
 Deployment
 
-The API is deployed on Railway. Set the variables above in the service settings and set APP_URL to the generated domain, because it is used in the links sent by email.
+The API is deployed on vercel. Set the variables above in the service settings and set APP_URL to the generated domain, because it is used in the links sent by email.
 
 Author
 
